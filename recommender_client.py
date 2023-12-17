@@ -1,21 +1,27 @@
 import os
+import sys
+import ast
 from dotenv import load_dotenv
-import openai
+from openai import OpenAI
 from langchain.document_loaders import UnstructuredMarkdownLoader
 import tiktoken
+from time import sleep
 
 # Load environment variables from .env file
 load_dotenv()
 
 # Initialize the OpenAI client
-client = openai.Client(api_key=os.getenv('OPENAI_API_KEY'))  # Corrected line
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
+openai_model = "gpt-4-1106-preview"
+openai_model_max_tokens = 3000
 
 def reportTokens(prompt, model):
     encoding = tiktoken.encoding_for_model(model)
     print("\033[37m" + str(len(encoding.encode(prompt))) + " tokens\033[0m in prompt: " + "\033[92m" + prompt[:50] + "\033[0m")
 
 class SkillMatcher:
-    def __init__(self, client, model="gpt-4-1106-preview", max_tokens=3000):
+    def __init__(self, client, model=openai_model, max_tokens=openai_model_max_tokens):
         self.client = client
         self.model = model
         self.max_tokens = max_tokens
@@ -33,19 +39,30 @@ class SkillMatcher:
             f"Explain why this candidate is a {('good match for the job' if role == 'client' else 'good job to apply for')}:"
         )
 
-    def generate_response(self, prompt):
-        reportTokens(prompt, self.model)
-        try:
-            response = self.client.Completion.create(
-                engine=self.model,
-                prompt=prompt,
-                max_tokens=self.max_tokens
-            )
-            return response.choices[0].text.strip()
-        except Exception as e:
-            print(f"Error: {e}")
-            return "No response generated"
+    def generate_response(self, system_prompt, user_prompt):
+        reportTokens(system_prompt, self.model)
+        reportTokens(user_prompt, self.model)
         
+        # Structure messages as a list of message dictionaries
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt}
+        ]
+        
+        params = {
+            "model": self.model,
+            "messages": messages,
+            "max_tokens": self.max_tokens,
+            "temperature": 0,
+        }
+
+        try:
+            response = self.client.chat.completions.create(**params)
+            return response.choices[0].message.content.strip()
+        except Exception as e:
+            print("Failed to generate response. Error: ", e)
+            return "No response generated"
+
 def main():
     skill_matcher = SkillMatcher(client)
 
@@ -58,12 +75,14 @@ def main():
         prompt_job_requirements = job_requirements[:500]
         prompt_profile = profile[:3000]
 
-        prompt_for_client = skill_matcher.generate_prompt(prompt_job_requirements, prompt_profile, 'client')
-        explanation_for_client = skill_matcher.generate_response(prompt_for_client)
+        system_prompt_for_client = "Please generate a detailed explanation for the following:"
+        user_prompt_for_client = skill_matcher.generate_prompt(prompt_job_requirements, prompt_profile, 'client')
+        explanation_for_client = skill_matcher.generate_response(system_prompt_for_client, user_prompt_for_client)
         print(f"Explanation for client:\n{explanation_for_client}\n")
         
-        prompt_for_talent = skill_matcher.generate_prompt(prompt_job_requirements, prompt_profile, 'talent')
-        explanation_for_talent = skill_matcher.generate_response(prompt_for_talent)
+        system_prompt_for_talent = "Please generate a detailed explanation for the following:"
+        user_prompt_for_talent = skill_matcher.generate_prompt(prompt_job_requirements, prompt_profile, 'talent')
+        explanation_for_talent = skill_matcher.generate_response(system_prompt_for_talent, user_prompt_for_talent)
         print(f"Explanation for talent:\n{explanation_for_talent}\n")
 
 if __name__ == "__main__":
