@@ -32,7 +32,7 @@ class SkillMatcher:
     def generate_prompt(self, job_requirements, profile_metadata, role):
         role_messages = {
             'client': 'why this candidate is a good match for the job',
-            'talent': 'why is good to apply to such a job for further developing and putting your skills into value'
+            'talent': 'explain to the talent, why this job opportunity is good for their career development and how to put their skills in practive'
         }
         return (
             f"Job Requirements:\n{job_requirements}\n\n"
