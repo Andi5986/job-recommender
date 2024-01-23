@@ -14,5 +14,4 @@ chromadb==0.4.18
 keras==2.13.1rc0
 Markdown==3.5.1
 tensorflow==2.13.0rc1
-tensorflow-estimator==2.13.0rc0
 tensorflow-macos==2.13.0rc1
